@@ -1,9 +1,17 @@
-# import pennylane as qml
-class RBS(Operator):
+'''
+参考文章 QONN in pennylanes
+'''
 
-    def __init__(self, a, b, c):
-        self.a = a
-        self.b = b
-        self.c = c
+import pennylane as qml
+from pennylane.operation import Operation
 
-    def RBS(self):
+class RBS(Operation):
+    num_params = 1
+    num_wires = 1
+    par_domain = "R"
+
+    def __init__(self, theta, wires):
+        super().__init__(theta, wires=wires)
+
+    def expand(self):
+        qml.RZ(self.parameters[0], wires=self.wires)
