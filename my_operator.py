@@ -27,13 +27,4 @@ class RBS(Operation):
 
 
 
-# 测试函数
-dev = qml.device("default.qubit", wires=1)
-@qml.qnode(dev)
-def my_circuit():
-    RBS(np.pi, wires=[0,1])
-    return qml.expval(qml.PauliZ(0))
-
-result = my_circuit(0.5)
-print(result)
 

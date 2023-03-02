@@ -63,7 +63,7 @@ if __name__ == '__main__':
     ini_state[0] = 1.
     s = layer_42(ini_state, [0,0,0,0,0])
     # print(s)
-    # print(qml.draw(layer_42)(ini_state, [0,0,0,0,0]))
+    print(qml.draw(layer_42)(ini_state, [0,0,0,0,0]))
 
 
 
