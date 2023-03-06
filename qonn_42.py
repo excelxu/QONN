@@ -1,4 +1,4 @@
-import os
+import pandas as pd
 import pennylane as qml
 from pennylane import numpy as np
 from sklearn import datasets
@@ -87,14 +87,18 @@ if __name__ == '__main__':
     # 用于导入量子态数据的全局变量
     global ini_state
     # 读取excel中数据
+    ab_train = pd.read_excel('IrisData/ab20_train_100.xlsx') # pd默认将第一行作为标题
+    bc_train = pd.read_excel('IrisData/bc20_train_100.xlsx')
+    ab_test = pd.read_excel('IrisData/irisAB_test_80.xlsx')
+    bc_test = pd.read_excel('IrisData/irisBC_test_80.xlsx')
 
-
-
-    ini_state = data_to_state([0, 0.8, 0.6, 0, 0]) # 自定义的初始态
+    print(ab_train)
+    # 量子网络的初始化
     param = np.array([1, 0.1, 3, 3, 0]) # 初始化参数
-    print(qml.draw(layer_42_on_3)([0, 0, 0, 0, 0]))
+    print(qml.draw(layer_42_on_3)(param)) # 绘制网络框架
 
-    for i in range(100):
+    for i in range(1):
+        ini_state = data_to_state([0, 0.8, 0.6, 0, 0])  # 自定义的初始态
         print(layer_42_on_3(param))
         grad = qml.gradients.param_shift(layer_42_on_3)(param)
         param = param - grad* 0.2
