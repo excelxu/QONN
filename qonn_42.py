@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import random
 import matplotlib.pyplot as plt
 
-dev = qml.device('default.qubit', wires=[0,1,2,3,'aux']) # 定义量子模拟器,包含自动微分模式
+dev = qml.device('default.mixed', wires=[0,1,2,3,'aux']) # 定义量子模拟器,包含自动微分模式
 
 def RBS(on_wire, theta):
     if type(on_wire) is tuple:
@@ -90,19 +90,16 @@ if __name__ == '__main__':
 
 
 
+    ini_state = data_to_state([0, 0.8, 0.6, 0, 0]) # 自定义的初始态
+    param = np.array([1, 0.1, 3, 3, 0]) # 初始化参数
+    print(qml.draw(layer_42_on_3)([0, 0, 0, 0, 0]))
 
-
-    ini_state = data_to_state([0, 0.8, 0.6, 0, 0])
-    print(ini_state)
-    print(qml.draw(layer_42_on_3)([0,0,0,0,0]))
-    print(layer_42_on_3(np.array([0,0,0,0,0])))
-    grad = qml.gradients.param_shift(layer_42_on_3)(np.array([1,0.1,3,3,0]))
-    param = np.array([1, 0.1, 3, 3, 0])
-    print(grad)
-    for i in range(1000):
+    for i in range(100):
         print(layer_42_on_3(param))
         grad = qml.gradients.param_shift(layer_42_on_3)(param)
-        param = param - grad* 0.01
+        param = param - grad* 0.2
+
+    print(param)
 
 
 
