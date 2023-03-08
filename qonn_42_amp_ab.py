@@ -1,4 +1,4 @@
-import os
+qonn_42.pyimport os
 import pandas as pd
 import pennylane as qml
 from pennylane import numpy as np
