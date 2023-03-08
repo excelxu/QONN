@@ -8,6 +8,121 @@ from sklearn.model_selection import train_test_split
 import random
 import matplotlib.pyplot as plt
 
+# 来自远古的传承
+# 古代的量子计算曾用经典计算机计算梯度进行优化
+def ideal_vector_generate(label):
+    vector = {
+        1:[1.0,0.],
+        2:[0.,1.]
+    }
+
+    return vector.get(label)
+
+
+# RBS(+)的求导
+def rot_gate_bp_grad(local_input_state, local_bp_error, theta):
+    '''return grad on theta point'''
+    Th = theta
+    grad = local_bp_error[0] * (-np.sin(Th) * local_input_state[0] + np.cos(Th) * local_input_state[1]) \
+           + local_bp_error[1] * (-np.cos(Th) * local_input_state[0] - np.sin(Th) * local_input_state[1])
+
+    return grad
+
+
+def R_Rule(input):
+    # R_Rule函数误差逆传播矩阵
+    #   此处显示详细说明
+    output = input
+    length = len(input)
+    for i in range(length):
+        if input[i] > 1e-20:
+            output[i] = 1
+        else:
+            output[i] = 1e-20
+
+    return [output]
+
+
+def updater(theta, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, Rate):
+    '''根据输入的θ，ζ(sets),和数据的标签，输出优化后的角度'''
+    # θ的重新命名
+    theta_1 = theta[0]
+    theta_2 = theta[1]
+    theta_3 = theta[2]
+    theta_4 = theta[3]
+    theta_5 = theta[4]
+    # zetas都是四维列表
+    layer_input = zeta_0
+    layer_output = zeta_4
+    # 根据标签生成优化目标矢量（Ideal_V）
+    ideal_vector = ideal_vector_generate(label)
+    #   zeta_list = np.column_stack((zeta_0,zeta_1,zeta_2,zeta_3,zeta_4))
+    # 进行激活函数处理，得到被激活的输出
+    activated_output = np.maximum(1e-20, layer_output)
+    result = activated_output[2:4]
+    # 计算LOSS
+    error_vector = [0., 0., (result[0] - ideal_vector[0]) ** 2, (result[1] - ideal_vector[1]) ** 2]
+    loss = sum(error_vector)
+    re_relu = R_Rule(zeta_4)
+    re_relu = re_relu[0]
+    # 计算每一层的error_vector
+    delta_4 = [0.,
+               0.,
+               re_relu[2] * 2 * (result[0] - ideal_vector[0]),
+               re_relu[3] * 2 * (result[1] - ideal_vector[1])
+               ]
+    delta_3 = [delta_4[0],
+               delta_4[1] * np.cos(theta_5) + delta_4[2] * np.sin(-theta_5),
+               delta_4[1] * np.sin(theta_5) + delta_4[2] * np.cos(theta_5),
+               delta_4[3]
+               ]
+    delta_2 = [delta_3[0] * np.cos(theta_3) + delta_3[1] * np.sin(-theta_3),
+               delta_3[0] * np.sin(theta_3) + delta_3[1] * np.cos(theta_3),
+               delta_3[2] * np.cos(theta_4) + delta_3[3] * np.sin(-theta_4),
+               delta_3[2] * np.sin(theta_4) + delta_3[3] * np.cos(theta_4),
+               ]
+    delta_1 = [delta_2[0],
+               delta_2[1] * np.cos(theta_2) + delta_2[2] * np.sin(-theta_2),
+               delta_2[1] * np.sin(+theta_2) + delta_2[2] * np.cos(theta_2),
+               delta_2[3]
+               ]
+    # delta_0 =
+    # 计算BP
+    delta = [delta_1, delta_2, delta_3, delta_4]
+    zeta_mid = [0, 0, 0, 0]
+    zeta_mid[0] = zeta_2[0]
+    zeta_mid[1] = zeta_2[1]
+    zeta_mid[2] = zeta_3[2]
+    zeta_mid[3] = zeta_3[3]
+
+    theta_1_grad = rot_gate_bp_grad(state_input[0:2], delta_1[0:2], theta_1)  # theta_1
+    theta_2_grad = rot_gate_bp_grad(zeta_0[1:3], delta_2[1:3], theta_2)  # theta_2
+    theta_3_grad = rot_gate_bp_grad(zeta_1[0:2], delta_3[0:2], theta_3)  # theta_3
+    theta_4_grad = rot_gate_bp_grad(zeta_1[2:4], delta_3[2:4], theta_4)  # theta_4
+    theta_5_grad = rot_gate_bp_grad(zeta_mid[1:3], delta_4[1:3], theta_5)  # theta_5
+
+    # 输出的新theta
+    theta_1_updated = theta_1 - Rate * theta_1_grad  # theta_1
+    theta_2_updated = theta_2 - Rate * theta_2_grad  # theta_2
+    theta_3_updated = theta_3 - Rate * theta_3_grad  # theta_3
+    theta_4_updated = theta_4 - Rate * theta_4_grad  # theta_4
+    theta_5_updated = theta_5 - Rate * theta_5_grad  # theta_5
+
+    theta_grad = [theta_1_grad,
+                  theta_2_grad,
+                  theta_3_grad,
+                  theta_4_grad,
+                  theta_5_grad
+                  ]
+    theta_updated = [theta_1_updated,
+                     theta_2_updated,
+                     theta_3_updated,
+                     theta_4_updated,
+                     theta_5_updated,
+                     loss
+                     ]
+
+    return (delta, theta_grad, theta_updated, loss)
 def Standard(x):
     """Z-score normaliaztion"""
     x = (x - np.mean(x)) / np.std(x)
@@ -51,7 +166,7 @@ def data_to_state(data):
 # (1)通过生成电路生成
 # (2)作为全局变量导入
 @qml.qnode(dev,  diff_method="parameter-shift")
-def layer_42_on_3(params):
+def layer_42_state(params):
     # 装载初始数据
     # 拥有五条线路，最下面一条是辅助量子比特
     qml.QubitStateVector(ini_state
@@ -66,66 +181,7 @@ def layer_42_on_3(params):
     RBS((2, 3), params[3])
     qml.Snapshot("zeta_3")
     RBS((1, 2), params[4])
-    return qml.expval(qml.PauliZ(2))
-
-@qml.qnode(dev,  diff_method="parameter-shift")
-def layer_42_on_4(params):
-    # 装载初始数据
-    # 拥有五条线路，最下面一条是辅助量子比特
-    qml.QubitStateVector(ini_state
-                        ,wires=[0,1,2,3,'aux'])
-    # 金字塔电路主体
-    RBS((0, 1), params[0])
-    qml.Snapshot("zeta_0")
-    RBS((1, 2), params[1])
-    qml.Snapshot("zeta_1")
-    RBS((0, 1), params[2])
-    qml.Snapshot("zeta_2")
-    RBS((2, 3), params[3])
-    qml.Snapshot("zeta_3")
-    RBS((1, 2), params[4])
-    return qml.expval(qml.PauliZ(3))
-
-# 测量相对相位的电路
-@qml.qnode(dev,  diff_method="parameter-shift")
-def layer_42_p34(params):
-    # 装载初始数据
-    # 拥有五条线路，最下面一条是辅助量子比特
-    qml.QubitStateVector(ini_state
-                        ,wires=[0,1,2,3,'aux'])
-    # 金字塔电路主体
-    RBS((0, 1), params[0])
-    # qml.Snapshot("zeta_0")
-    RBS((1, 2), params[1])
-    # qml.Snapshot("zeta_1")
-    RBS((0, 1), params[2])
-    # qml.Snapshot("zeta_2")
-    RBS((2, 3), params[3])
-    # qml.Snapshot("zeta_3")
-    RBS((1, 2), params[4])
-    # '交换振幅'
-    RBS((2, 3), np.pi/4)
-    return [qml.expval(qml.PauliZ(i)) for i in [2,3]]
-
-@qml.qnode(dev,  diff_method="parameter-shift")
-def layer_42_p45(params):
-    # 装载初始数据
-    # 拥有五条线路，最下面一条是辅助量子比特
-    qml.QubitStateVector(ini_state
-                        ,wires=[0,1,2,3,'aux'])
-    # 金字塔电路主体
-    RBS((0, 1), params[0])
-    # qml.Snapshot("zeta_0")
-    RBS((1, 2), params[1])
-    # qml.Snapshot("zeta_1")
-    RBS((0, 1), params[2])
-    # qml.Snapshot("zeta_2")
-    RBS((2, 3), params[3])
-    # qml.Snapshot("zeta_3")
-    RBS((1, 2), params[4])
-    # '交换振幅'
-    RBS((3, 'aux'), np.pi/4)
-    return [qml.expval(qml.PauliZ(3)) ,qml.expval(qml.PauliZ('aux'))]
+    return qml.state()
 
 # 测试集测试函数
 def test_acc(test_data, param):
@@ -206,29 +262,9 @@ if __name__ == '__main__':
 
         #---量子电路的输出与梯度
         ini_state = data_to_state(data)
-        out3 = layer_42_on_3(param)
-        out4 = layer_42_on_4(param)
-        grad3 = qml.gradients.param_shift(layer_42_on_3)(param)
-        grad4 = qml.gradients.param_shift(layer_42_on_4)(param)
-
-        # 计算相位
-        a, b = layer_42_p34(param)
-        c, d = layer_42_p45(param)  # 交换后的测量值
-        pa = (1 - a) / 2
-        pb = (1 - b) / 2
-        pc = (1 - c) / 2
-        pd = (1 - d) / 2
-        ph_aux = +1  # 设置相位的初始态
-        ph_4 = +1
-        ph_3 = +1
-        if pc >= pd:
-            ph_4 = ph_aux * (-1)
-        else:
-            ph_4 = ph_aux
-        if pa >= pb:
-            ph_3 = ph_4 * (-1)
-        else:
-            ph_3 = ph_4
+        out = layer_42_state(param)
+        amp_3 = out[2]
+        amp_4 = out[3]
 
         # 根据标签设置目标矢量,1:[1,0];2:[0,1]
         if label == 1:
