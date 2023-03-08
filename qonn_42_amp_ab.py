@@ -1,4 +1,4 @@
-qonn_42.pyimport os
+import os
 import pandas as pd
 import pennylane as qml
 from pennylane import numpy as np
@@ -18,7 +18,6 @@ def ideal_vector_generate(label):
 
     return vector.get(label)
 
-
 # RBS(+)的求导
 def rot_gate_bp_grad(local_input_state, local_bp_error, theta):
     '''return grad on theta point'''
@@ -28,9 +27,10 @@ def rot_gate_bp_grad(local_input_state, local_bp_error, theta):
 
     return grad
 
-
-def R_Rule(input):
-    # R_Rule函数误差逆传播矩阵
+def Relu(x):
+    return np.maximum(x, 0)
+def R_Relu(input):
+    # R_Relu函数误差逆传播矩阵
     #   此处显示详细说明
     output = input
     length = len(input)
@@ -41,7 +41,6 @@ def R_Rule(input):
             output[i] = 1e-20
 
     return [output]
-
 
 def updater(theta, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, Rate):
     '''根据输入的θ，ζ(sets),和数据的标签，输出优化后的角度'''
@@ -58,12 +57,12 @@ def updater(theta, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, R
     ideal_vector = ideal_vector_generate(label)
     #   zeta_list = np.column_stack((zeta_0,zeta_1,zeta_2,zeta_3,zeta_4))
     # 进行激活函数处理，得到被激活的输出
-    activated_output = np.maximum(1e-20, layer_output)
+    activated_output = Relu(layer_output)
     result = activated_output[2:4]
     # 计算LOSS
     error_vector = [0., 0., (result[0] - ideal_vector[0]) ** 2, (result[1] - ideal_vector[1]) ** 2]
     loss = sum(error_vector)
-    re_relu = R_Rule(zeta_4)
+    re_relu = R_Relu(zeta_4)
     re_relu = re_relu[0]
     # 计算每一层的error_vector
     delta_4 = [0.,
@@ -108,12 +107,12 @@ def updater(theta, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, R
     theta_4_updated = theta_4 - Rate * theta_4_grad  # theta_4
     theta_5_updated = theta_5 - Rate * theta_5_grad  # theta_5
 
-    theta_grad = [theta_1_grad,
+    theta_grad = np.array([theta_1_grad,
                   theta_2_grad,
                   theta_3_grad,
                   theta_4_grad,
                   theta_5_grad
-                  ]
+                  ])
     theta_updated = [theta_1_updated,
                      theta_2_updated,
                      theta_3_updated,
@@ -162,11 +161,27 @@ def data_to_state(data):
             +data[4]*basis00001 # 第五位是辅助量子比特上的振幅，一般为0.2
     return state
 
+def state_to_data(state):
+    # updater 中应用的都是四维矢量
+    data = [0, 0, 0, 0]
+    data[0] = np.real(state[(1,16)])
+    data[1] = np.real(state[(1, 8)])
+    data[2] = np.real(state[(1, 4)])
+    data[3] = np.real(state[(1, 2)])
+    # data[0] = data[0].numpy()
+    # data[1] = data[1].numpy()
+    # data[2] = data[2].numpy()
+    # data[3] = data[3].numpy()
+    return data
+
+'''
 # 为了更好地使用qml,初始化量子态必须
 # (1)通过生成电路生成
 # (2)作为全局变量导入
-@qml.qnode(dev,  diff_method="parameter-shift")
-def layer_42_state(params):
+'''
+
+@qml.qnode(dev)
+def layer_42_state(ini_state, params):
     # 装载初始数据
     # 拥有五条线路，最下面一条是辅助量子比特
     qml.QubitStateVector(ini_state
@@ -185,7 +200,7 @@ def layer_42_state(params):
 
 # 测试集测试函数
 def test_acc(test_data, param):
-    count = 0
+    count = 0.0
     for i in range(80):
         data = test_data.values[i, (0, 1, 2, 3)]
         data = Standard(data)
@@ -196,61 +211,36 @@ def test_acc(test_data, param):
 
     # ---量子电路的输出
         ini_state = data_to_state(data)
-        out3 = layer_42_on_3(param)
-        out4 = layer_42_on_4(param)
-        # 计算相位
-        a, b = layer_42_p34(param)
-        c, d = layer_42_p45(param)  # 交换后的测量值
-        pa = (1 - a) / 2
-        pb = (1 - b) / 2
-        pc = (1 - c) / 2
-        pd = (1 - d) / 2
-        ph_aux = +1  # 设置相位的初始态
-        ph_4 = +1
-        ph_3 = +1
-        if pc >= pd:
-            ph_4 = ph_aux * (-1)
-        else:
-            ph_4 = ph_aux
-        if pa >= pb:
-            ph_3 = ph_4 * (-1)
-        else:
-            ph_3 = ph_4
-
-        amp3 = ph_3*(1-out3)/2
-        amp4 = ph_4*(1-out4)/2
-
-        if amp3>amp4:
-            if label == 1:
-                count = count+1
-        if amp3<amp4:
-            if label == 2:
-                count == count+1
-
-        acc = count/80.0
-        return acc
-
+        out_state = layer_42_state(ini_state, param)
+        out_data = state_to_data(out_state)
+        out3 = Relu(out_data[2])
+        out4 = Relu(out_data[3])
+        if label == 1 and out3>out4:
+            count = count+1.0
+        if label == 2 and out3<out4:
+             count = count+1.0
+    acc = count/80.0
+    return acc
+'''
+测试🐔，1！5！
+'''
 
 if __name__ == '__main__':
-
-    # 测试🐔
-    # 用于导入量子态数据的全局变量
-    global ini_state
+    k=0
     # 读取excel中数据
     ab_train = pd.read_excel('IrisData/ab20_train_100.xlsx') # pd默认将第一行作为标题
-    bc_train = pd.read_excel('IrisData/bc20_train_100.xlsx')
     ab_test = pd.read_excel('IrisData/irisAB_test_80.xlsx')
-    bc_test = pd.read_excel('IrisData/irisBC_test_80.xlsx')
+    # bc_test = pd.read_excel('IrisData/irisBC_test_80.xlsx')
+    # bc_train = pd.read_excel('IrisData/bc20_train_100.xlsx')
     # 量子网络的初始化
-
     ini_state = data_to_state([0, 0.8, 0.6, 0, 0])
     param = np.array([1, 0.1, 3, 3, 0]) # 初始化参数
-    lr = 0.05 # 学习率
-    sum_grad = 0
+    lr = 0.1 # 学习率
+    sum_grad = np.zeros(5)
     acc_on_test = np.zeros(11)
+    loss_training = np.zeros(11)
+    sum_loss = 0
 
-
-    sp = 10
     for i in range(100): # 遍历一次训练集,ab（100个）
         # 每次10次对梯度做一次升级
         data = ab_train.values[i,(0,1,2,3)]
@@ -259,40 +249,46 @@ if __name__ == '__main__':
         f = [feat[0], feat[1], feat[2], feat[3], np.sqrt(0.2)]
         data = f # 输入态
         label = ab_train.values[i,4] #标签
-
         #---量子电路的输出与梯度
         ini_state = data_to_state(data)
-        out = layer_42_state(param)
-        amp_3 = out[2]
-        amp_4 = out[3]
+        # 网络运行
+        out = qml.snapshots(layer_42_state)(ini_state, param)  # 同时记录最终结果和中间的数据，使用字典存储
+        zeta_state_0 = out.get('zeta_0')
+        zeta_state_1 = out.get('zeta_1')
+        zeta_state_2 = out.get('zeta_2')
+        zeta_state_3 = out.get('zeta_3')
+        zeta_state_4 = out.get('execution_results')
+        #zeta_5 = out.get()
 
-        # 根据标签设置目标矢量,1:[1,0];2:[0,1]
-        if label == 1:
-            tau3 = 1
-            tau4 = 0
-        elif label == 2:
-            tau3 = 0
-            tau4 = 1
+        state_input = [feat[0], feat[1], feat[2], feat[3]]
+        zeta_0 = state_to_data(zeta_state_0)
+        zeta_1 = state_to_data(zeta_state_1)
+        zeta_2 = state_to_data(zeta_state_2)
+        zeta_3 = state_to_data(zeta_state_3)
+        zeta_4 = state_to_data(zeta_state_4)
 
-        # 计算梯度系数
-        # 计算观测量out3，out4与概率的关系，并且转化为振幅
-        C3 = (tau3 * ph_3 / np.sqrt((1 - out3)/2 ) - 1) / 4
-        C4 = (tau4 * ph_4 / np.sqrt((1 - out4)/2 ) - 1) / 4
-
-        # 计算梯度
-        grad = grad3*C3+grad4*C4
-        sum_grad = sum_grad+grad
+        # 计算梯度与loss
+        (delta, grad, theta_updated, loss) = updater(param, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, lr)
+        sum_loss = sum_loss + loss
+        sum_grad = sum_grad + grad
         if i == 0:
             acc_on_test[0] = test_acc(ab_test, param)
-        if (i+1)%sp == 0: # 每10个样本升级一次
-            param = param - sum_grad * lr
+            # loss_training[0] = sum_loss
+        if (i+1)%10 == 0:  # 每10个样本升级一次
+            k = k + 1
+            param = param - lr*sum_grad
+            # loss_training[k] = sum_loss
+            acc = test_acc(ab_test, param)
+            acc_on_test[k] = acc
+            print(k)
             sum_grad = 0
-            # 完成一次升级后计算正确率
-            acc_on_test[(i+1)//sp] = test_acc(ab_test, param)
-        print('Iteration is : ',i)
-        print(param)
-    print(acc_on_test)
+            sum_loss = 0
     plt.plot(acc_on_test)
     plt.show()
-    os.system("pause")
+    plt.plot(loss_training)
+    plt.show()
+
+        # 根据标签设置目标矢量,1:[1,0];2:[0,1]
+        # print(theta_grad)
+
 
