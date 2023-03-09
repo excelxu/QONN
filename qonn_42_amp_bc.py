@@ -228,15 +228,14 @@ def test_acc(test_data, param):
 if __name__ == '__main__':
     k=0
     # 读取excel中数据
-    ab_train = pd.read_excel('IrisData/ab20_train_100.xlsx') # pd默认将第一行作为标题
-    ab_test = pd.read_excel('IrisData/irisAB_test_80.xlsx')
-    # bc_test = pd.read_excel('IrisData/irisBC_test_80.xlsx')
-    # bc_train = pd.read_excel('IrisData/bc20_train_100.xlsx')
+    # ab_train = pd.read_excel('IrisData/ab20_train_100.xlsx') # pd默认将第一行作为标题
+    # ab_test = pd.read_excel('IrisData/irisAB_test_80.xlsx')
+    bc_test = pd.read_excel('IrisData/irisBC_test_80.xlsx')
+    bc_train = pd.read_excel('IrisData/bc20_train_100.xlsx')
     # 量子网络的初始化
-    ini_state = data_to_state([0, 0.8, 0.6, 0, 0])
-    param = np.random.random(5)
-    # param = np.array([1.80,2.34,2.76,2.00,1.61]) # 初始化参数
-    lr = 0.3 # 学习率
+    # ini_state = data_to_state([0, 0.8, 0.6, 0, 0])
+    param = np.array([1.39,2.70,1.22,1.55,1.42]) # 初始化参数
+    lr = 0.25# 学习率
     sum_grad = np.zeros(5)
     acc_on_test = np.zeros(11)
     loss_training = np.zeros(11)
@@ -244,12 +243,12 @@ if __name__ == '__main__':
 
     for i in range(100): # 遍历一次训练集,ab（100个）
         # 每次10次对梯度做一次升级
-        data = ab_train.values[i,(0,1,2,3)]
+        data = bc_train.values[i,(0,1,2,3)]
         data = Standard(data)
         feat = np.sqrt(0.8)*(data)/np.sqrt(np.dot(data,data))
         f = [feat[0], feat[1], feat[2], feat[3], np.sqrt(0.2)]
         data = f # 输入态
-        label = ab_train.values[i,4] #标签
+        label = bc_train.values[i,4] #标签
         #---量子电路的输出与梯度
         ini_state = data_to_state(data)
         # 网络运行
@@ -273,15 +272,14 @@ if __name__ == '__main__':
         sum_loss = sum_loss + loss
         sum_grad = sum_grad + grad
         if i == 0:
-            acc_on_test[0] = test_acc(ab_test, param)
+            acc_on_test[0] = test_acc(bc_test, param)
             # loss_training[0] = sum_loss
         if (i+1)%10 == 0:  # 每10个样本升级一次
             k = k + 1
             param = param - lr*sum_grad
             # loss_training[k] = sum_loss
-            acc = test_acc(ab_test, param)
+            acc = test_acc(bc_test, param)
             acc_on_test[k] = acc
-            # print(k)
             sum_grad = 0
             sum_loss = 0
     plt.plot(acc_on_test)
