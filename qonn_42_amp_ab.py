@@ -271,7 +271,7 @@ if __name__ == '__main__':
     ab_feature_4 = Standard(ab_train_4)
 
     param = np.array([1.80, 2.34, 2.76, 2.00, 1.61]) # 初始化参数
-    lr = 0.9 # 学习率
+    lr = 0.3 # 学习率
     sum_grad = np.array([0,0,0,0,0])
     acc_on_test = []
     loss_training = []
@@ -320,16 +320,17 @@ if __name__ == '__main__':
         grad = np.array(grad)
         sum_loss = sum_loss + loss
         sum_grad = sum_grad + grad
-        print('iteration', i, 'with', grad)
+
         if i == 0:
             acc_on_test.append(test_acc(ab_test, param))
             # loss_training[0] = sum_loss
         if (i+1)%10 == 0:  # 每10个样本升级一次
-            param = param - lr * sum_grad/10
+            param = param - lr * sum_grad/5
             loss_training.append(sum_loss)
             acc = test_acc(ab_test, param)
             acc_on_test.append(test_acc(ab_test, param))
             # print(k)
+            print('iteration', i, 'with', param)
             sum_grad = 0
             sum_loss = 0
             # print('Iteration num is',i,'with param is',param)
