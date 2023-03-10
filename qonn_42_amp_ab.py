@@ -42,7 +42,6 @@ def R_Relu(input):
 
     return [output]
 
-
 def updater(theta, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, Rate):
     '''根据输入的θ，ζ(sets),和数据的标签，输出优化后的角度'''
     # θ的重新命名
@@ -72,20 +71,57 @@ def updater(theta, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, R
                re_relu[3] * 2 * (result[1] - ideal_vector[1])
                ]
     delta_3 = [delta_4[0],
-               delta_4[1] * np.cos(theta_5) + delta_4[2] * np.sin(-theta_5),
-               delta_4[1] * np.sin(theta_5) + delta_4[2] * np.cos(theta_5),
-               delta_4[3]
-               ]
+                   delta_4[1] * np.cos(theta_5) + delta_4[2] * np.sin(-theta_5),
+                   delta_4[1] * np.sin(theta_5) + delta_4[2] * np.cos(theta_5),
+                   delta_4[3]
+                   ]
     delta_2 = [delta_3[0] * np.cos(theta_3) + delta_3[1] * np.sin(-theta_3),
-               delta_3[0] * np.sin(theta_3) + delta_3[1] * np.cos(theta_3),
-               delta_3[2] * np.cos(theta_4) + delta_3[3] * np.sin(-theta_4),
-               delta_3[2] * np.sin(theta_4) + delta_3[3] * np.cos(theta_4),
-               ]
+                   delta_3[0] * np.sin(theta_3) + delta_3[1] * np.cos(theta_3),
+                   delta_3[2] * np.cos(theta_4) + delta_3[3] * np.sin(-theta_4),
+                   delta_3[2] * np.sin(theta_4) + delta_3[3] * np.cos(theta_4),
+                   ]
     delta_1 = [delta_2[0],
-               delta_2[1] * np.cos(theta_2) + delta_2[2] * np.sin(-theta_2),
-               delta_2[1] * np.sin(+theta_2) + delta_2[2] * np.cos(theta_2),
-               delta_2[3]
-               ]
+                   delta_2[1] * np.cos(theta_2) + delta_2[2] * np.sin(-theta_2),
+                   delta_2[1] * np.sin(+theta_2) + delta_2[2] * np.cos(theta_2),
+                   delta_2[3]
+                   ]
+        # delta_0 =
+        # 计算BP
+    delta = [delta_1, delta_2, delta_3, delta_4]
+    zeta_mid = [0, 0, 0, 0]
+    zeta_mid[0] = zeta_2[0]
+    zeta_mid[1] = zeta_2[1]
+    zeta_mid[2] = zeta_3[2]
+    zeta_mid[3] = zeta_3[3]
+
+    theta_1_grad = rot_gate_bp_grad(state_input[0:2], delta_1[0:2], theta_1)  # theta_1
+    theta_2_grad = rot_gate_bp_grad(zeta_0[1:3], delta_2[1:3], theta_2)  # theta_2
+    theta_3_grad = rot_gate_bp_grad(zeta_1[0:2], delta_3[0:2], theta_3)  # theta_3
+    theta_4_grad = rot_gate_bp_grad(zeta_1[2:4], delta_3[2:4], theta_4)  # theta_4
+    theta_5_grad = rot_gate_bp_grad(zeta_mid[1:3], delta_4[1:3], theta_5)  # theta_5
+
+        # 输出的新theta
+    theta_1_updated = theta_1 - Rate * theta_1_grad  # theta_1
+    theta_2_updated = theta_2 - Rate * theta_2_grad  # theta_2
+    theta_3_updated = theta_3 - Rate * theta_3_grad  # theta_3
+    theta_4_updated = theta_4 - Rate * theta_4_grad  # theta_4
+    theta_5_updated = theta_5 - Rate * theta_5_grad  # theta_5
+
+    theta_grad = [theta_1_grad,
+                      theta_2_grad,
+                      theta_3_grad,
+                      theta_4_grad,
+                      theta_5_grad
+                      ]
+    theta_updated = [theta_1_updated,
+                         theta_2_updated,
+                         theta_3_updated,
+                         theta_4_updated,
+                         theta_5_updated,
+                         loss
+                         ]
+
+    return (delta, theta_grad, theta_updated, loss)
     # delta_0 =
     # 计算BP
     delta = [delta_1, delta_2, delta_3, delta_4]
@@ -98,7 +134,7 @@ def updater(theta, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, R
     theta_1_grad = rot_gate_bp_grad(state_input[0:2], delta_1[0:2], theta_1)  # theta_1
     theta_2_grad = rot_gate_bp_grad(zeta_0[1:3], delta_2[1:3], theta_2)  # theta_2
     theta_3_grad = rot_gate_bp_grad(zeta_1[0:2], delta_3[0:2], theta_3)  # theta_3
-    theta_4_grad = rot_gate_bp_grad(zeta_1[2:4], delta_3[2:4], theta_4)  # theta_4
+    theta_4_grad = rot_gate_bp_grad(zeta_2[2:4], delta_3[2:4], theta_4)  # theta_4
     theta_5_grad = rot_gate_bp_grad(zeta_mid[1:3], delta_4[1:3], theta_5)  # theta_5
 
     # 输出的新theta
@@ -135,8 +171,8 @@ def RBS(on_wire, theta):
         qml.Hadamard(wires=on_wire[0])
         qml.Hadamard(wires=on_wire[1])
         qml.CZ(wires=on_wire)
-        qml.RY(-theta/2, wires=on_wire[0])
-        qml.RY(+theta/2, wires=on_wire[1])
+        qml.RY(+theta, wires=on_wire[0])
+        qml.RY(-theta, wires=on_wire[1])
         qml.CZ(wires=on_wire)
         qml.Hadamard(wires=on_wire[0])
         qml.Hadamard(wires=on_wire[1])
@@ -233,10 +269,10 @@ def test_acc(test_data, param):
         out_data = qubit_state_to_data(out_state)
         out3 = Relu(out_data[2])
         out4 = Relu(out_data[3])
-        if label == 1.0:
+        if label < 1.5:
             if out3 >= out4:
                 count = count+1.0
-        if label == 2.0:
+        if label > 1.5:
             if out3 < out4:
                 count = count+1.0
     acc = count/80.0
@@ -270,7 +306,7 @@ if __name__ == '__main__':
     ab_feature_3 = Standard(ab_train_3)
     ab_feature_4 = Standard(ab_train_4)
 
-    param = np.array([1.80, 2.34, 2.76, 2.00, 1.61]) # 初始化参数
+    param = np.array([1.80, 2.34, 2., 2.00, 1.61]) # 初始化参数
     lr = 0.3 # 学习率
     sum_grad = np.array([0,0,0,0,0])
     acc_on_test = []
@@ -291,53 +327,57 @@ if __name__ == '__main__':
         s = norm_2_N(np.array(data[i]), 0.8)
         norm.append(s)
 
-    for i in range(100): # 遍历一次训练集,ab（100个）
-        # 每次10次对梯度做一次升级
-        label = ab_train.values[i,4] #标签
-        #---量子电路的输出与梯度
-        f = [norm[i][0], norm[i][1], norm[i][2], norm[i][3], np.sqrt(0.2)]
-        # print('iteration',i,'with',f)
-        ini_state = data_to_state(f)
-        # print(qml.draw(layer_42_state)(ini_state, param))
-        # 网络运行
-        # print('\n')
-        out = qml.snapshots(layer_42_state)(ini_state, param)  # 同时记录最终结果和中间的数据，使用字典存储
-        zeta_state_0 = out.get('zeta_0')
-        zeta_state_1 = out.get('zeta_1')
-        zeta_state_2 = out.get('zeta_2')
-        zeta_state_3 = out.get('zeta_3')
-        zeta_state_4 = out.get('zeta_4')
-        #zeta_5 = out.get()
+    for epoch in range(10):
+        for i in range(100):  # 遍历一次训练集,ab（100个）
+            # 每次10次对梯度做一次升级
+            label = ab_train.values[i, 4]  # 标签
+            # ---量子电路的输出与梯度
+            f = [norm[i][0], norm[i][1], norm[i][2], norm[i][3], np.sqrt(0.2)]
+            # print('iteration',i,'with',f)
+            ini_state = data_to_state(f)
+            # print(qml.draw(layer_42_state)(ini_state, param))
+            # 网络运行
+            # print('\n')
+            out = qml.snapshots(layer_42_state)(ini_state, param)  # 同时记录最终结果和中间的数据，使用字典存储
+            zeta_state_0 = out.get('zeta_0')
+            zeta_state_1 = out.get('zeta_1')
+            zeta_state_2 = out.get('zeta_2')
+            zeta_state_3 = out.get('zeta_3')
+            zeta_state_4 = out.get('zeta_4')
+            # zeta_5 = out.get()
 
-        state_input = [norm[i][0], norm[i][1], norm[i][2], norm[i][3]]
-        zeta_0 = qubit_state_to_data(zeta_state_0)
-        zeta_1 = qubit_state_to_data(zeta_state_1)
-        zeta_2 = qubit_state_to_data(zeta_state_2)
-        zeta_3 = qubit_state_to_data(zeta_state_3)
-        zeta_4 = qubit_state_to_data(zeta_state_4)
-        # 计算梯度与loss
-        (delta, grad, theta_updated, loss) = updater(param, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4, label, lr)
-        grad = np.array(grad)
-        sum_loss = sum_loss + loss
-        sum_grad = sum_grad + grad
-
-        if i == 0:
-            acc_on_test.append(test_acc(ab_test, param))
-            # loss_training[0] = sum_loss
-        if (i+1)%10 == 0:  # 每10个样本升级一次
-            param = param - lr * sum_grad/5
-            loss_training.append(sum_loss)
-            acc = test_acc(ab_test, param)
-            acc_on_test.append(test_acc(ab_test, param))
-            # print(k)
-            print('iteration', i, 'with', param)
-            sum_grad = 0
-            sum_loss = 0
-            # print('Iteration num is',i,'with param is',param)
+            state_input = [norm[i][0], norm[i][1], norm[i][2], norm[i][3]]
+            zeta_0 = qubit_state_to_data(zeta_state_0)
+            zeta_1 = qubit_state_to_data(zeta_state_1)
+            zeta_2 = qubit_state_to_data(zeta_state_2)
+            zeta_3 = qubit_state_to_data(zeta_state_3)
+            zeta_4 = qubit_state_to_data(zeta_state_4)
+            # print(zeta_4)
+            # 计算梯度与loss
+            (delta, grad, theta_updated, loss) = updater(param, state_input, zeta_0, zeta_1, zeta_2, zeta_3, zeta_4,
+                                                         label, lr)
+            grad = np.array(grad)
+            sum_loss = sum_loss + loss
+            sum_grad = sum_grad + grad
+            if i == 0:
+                acc_on_test.append(test_acc(ab_test, param))
+          # loss_training[0] = sum_loss
+            if (i + 1) % 10 == 0:  # 每10个样本升级一次
+                param = param - lr * sum_grad /10
+                loss_training.append(sum_loss)
+                acc = test_acc(ab_test, param)
+                acc_on_test.append(test_acc(ab_test, param))
+                # print(k)
+                print('iteration', i, 'with', param)
+                sum_grad = 0
+                sum_loss = 0
+                # print('Iteration num is',i,'with param is',param)
+    #print(acc_on_test)
     plt.plot(acc_on_test)
     plt.show()
     plt.plot(loss_training)
     plt.show()
+
 
         # 根据标签设置目标矢量,1:[1,0];2:[0,1]
         # print(theta_grad)

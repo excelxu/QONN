@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import pennylane as qml
 from pennylane import numpy as np
+import matplotlib.pyplot as plt
 from sklearn import datasets
 from sklearn.preprocessing import scale
 from sklearn.model_selection import train_test_split
@@ -135,8 +136,8 @@ def RBS(on_wire, theta):
         qml.Hadamard(wires=on_wire[0])
         qml.Hadamard(wires=on_wire[1])
         qml.CZ(wires=on_wire)
-        qml.RY(-theta/2, wires=on_wire[0])
-        qml.RY(+theta/2, wires=on_wire[1])
+        qml.RY(+theta, wires=on_wire[0])
+        qml.RY(-theta, wires=on_wire[1])
         qml.CZ(wires=on_wire)
         qml.Hadamard(wires=on_wire[0])
         qml.Hadamard(wires=on_wire[1])
@@ -233,10 +234,10 @@ def test_acc(test_data, param):
         out_data = qubit_state_to_data(out_state)
         out3 = Relu(out_data[2])
         out4 = Relu(out_data[3])
-        if label == 1.0:
+        if label*1.0 < 1.5:
             if out3 >= out4:
                 count = count+1.0
-        if label == 2.0:
+        if label*1.0 > 1.5:
             if out3 < out4:
                 count = count+1.0
     acc = count/80.0
@@ -270,8 +271,8 @@ if __name__ == '__main__':
     bc_feature_3 = Standard(bc_train_3)
     bc_feature_4 = Standard(bc_train_4)
 
-    param = np.array([1.80, 2.34, 2.76, 2.00, 1.61]) # 初始化参数
-    lr = 0.3 # 学习率
+    param = np.array([1.39,2.70,1.22,1.55,1.42]) # 初始化参数
+    lr = 0.8 # 学习率
     sum_grad = np.array([0,0,0,0,0])
     acc_on_test = []
     loss_training = []
@@ -325,7 +326,7 @@ if __name__ == '__main__':
             acc_on_test.append(test_acc(bc_test, param))
             # loss_training[0] = sum_loss
         if (i+1)%10 == 0:  # 每10个样本升级一次
-            param = param - lr * sum_grad/5
+            param = param - lr * sum_grad/10
             loss_training.append(sum_loss)
             acc = test_acc(bc_test, param)
             acc_on_test.append(test_acc(bc_test, param))
@@ -337,6 +338,7 @@ if __name__ == '__main__':
     plt.show()
     plt.plot(loss_training)
     plt.show()
+    print(qml.draw(layer_42_state)(ini_state, param))
 
         # 根据标签设置目标矢量,1:[1,0];2:[0,1]
         # print(theta_grad)
